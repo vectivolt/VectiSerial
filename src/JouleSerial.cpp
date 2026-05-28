@@ -144,7 +144,11 @@ void JouleSerialClass::_log(LogLevel lvl, const String &line) {
 }
 
 String JouleSerialClass::_historyJson(int /*sinceSeq*/) const {
-  String j = "{\"type\":\"hist\",\"lines\":[";
+  // title + brand let the browser apply setTitle() / setBrandColor() at
+  // runtime even though the gzipped HTML body has no template subst path.
+  String j = "{\"type\":\"hist\",\"title\":\"";
+  j += escapeJson(_title); j += "\",\"brand\":\"";
+  j += escapeJson(_brandColor); j += "\",\"lines\":[";
   bool first = true;
   for (const auto &l : _history) {
     if (!first) j += ',';

@@ -28,19 +28,20 @@ static const char SERIAL_UI_HTML[] PROGMEM = R"HTML(<!doctype html>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="theme-color" content="#0a0c12"/>
-<title>__TITLE__</title>
+<title>JouleSerial</title>
 <style>
 :root{
-  --bg:#0a0c12;--panel:rgba(255,255,255,.04);--panel-s:#141a2a;
-  --ink:#e8ecf5;--ink2:#a5acc1;--muted:#6b7390;--line:rgba(255,255,255,.08);
-  --brand:__BRAND__;--brand-2:#22d3ee;
-  --dbg:#7aa6ff;--inf:#3ddc97;--wrn:#ffb347;--err:#ff6b81;
-  --r:14px;--shadow:0 10px 30px rgba(0,0,0,.3);
+  --bg:#0b0f1a;--panel:rgba(255,255,255,.035);--panel-s:#151a2b;
+  --ink:#e6e9f2;--ink2:#9aa3b9;--muted:#6b7390;--line:rgba(255,255,255,.07);
+  --brand:#10b981;--brand-2:#0ea5e9;   /* emerald + sky — terminal feel */
+  /* log-level tints — match semantic palette */
+  --dbg:#0ea5e9;--inf:#10b981;--wrn:#f59e0b;--err:#ef4444;
+  --r:14px;--shadow:0 10px 30px rgba(8,12,28,.45);
   --grad:linear-gradient(135deg,var(--brand),var(--brand-2));
   --fs:13px;
 }
-:root[data-theme="light"]{--bg:#f4f6fc;--panel:rgba(255,255,255,.75);--panel-s:#fff;--ink:#0f1730;--ink2:#3a4366;--line:rgba(15,23,48,.08);--shadow:0 10px 28px rgba(20,32,80,.08)}
-@media(prefers-color-scheme:light){:root[data-theme="auto"]{--bg:#f4f6fc;--panel:rgba(255,255,255,.75);--panel-s:#fff;--ink:#0f1730;--ink2:#3a4366;--line:rgba(15,23,48,.08);--shadow:0 10px 28px rgba(20,32,80,.08)}}
+:root[data-theme="light"]{--bg:#f7f8fb;--panel:rgba(255,255,255,.78);--panel-s:#fff;--ink:#101427;--ink2:#3a4366;--line:rgba(16,20,39,.08);--shadow:0 10px 28px rgba(20,32,80,.08)}
+@media(prefers-color-scheme:light){:root[data-theme="auto"]{--bg:#f7f8fb;--panel:rgba(255,255,255,.78);--panel-s:#fff;--ink:#101427;--ink2:#3a4366;--line:rgba(16,20,39,.08);--shadow:0 10px 28px rgba(20,32,80,.08)}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}html,body{margin:0;height:100%;overflow:hidden}
 body{font:13.5px/1.45 -apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);
   background-image:radial-gradient(900px 400px at 100% 0,color-mix(in srgb,var(--brand) 12%,transparent),transparent 60%)}
@@ -79,7 +80,7 @@ input.search{min-width:200px}
 </style></head><body>
 <header>
   <div class="logo">⌨</div>
-  <div><div class="title">__TITLE__</div><div class="chip" style="margin-top:2px"><span class="dot" id="wsDot"></span> <span id="wsTxt">disconnected</span> · <b id="clients">0</b> clients</div></div>
+  <div><div class="title" id="appTitle">JouleSerial</div><div class="chip" style="margin-top:2px"><span class="dot" id="wsDot"></span> <span id="wsTxt">disconnected</span> · <b id="clients">0</b> clients</div></div>
   <div class="spacer"></div>
   <button class="btn" id="themeBtn" title="theme">◐</button>
 </header>
@@ -112,7 +113,7 @@ const $=s=>document.querySelector(s);
 const log=$("#log"),search=$("#search"),levelSel=$("#levelSel"),autoBtn=$("#autoBtn"),tsBtn=$("#tsBtn"),hexBtn=$("#hexBtn"),clearBtn=$("#clearBtn"),expSel=$("#expSel"),fontSel=$("#fontSel"),cmd=$("#cmd"),wsDot=$("#wsDot"),wsTxt=$("#wsTxt");
 let lines=[],ws=null,autoscroll=true,tsMode="rel",hex=false,cnt={0:0,1:0,2:0,3:0},rateBuf=[],hist=[],histI=-1;
 
-function applyTheme(){document.documentElement.setAttribute("data-theme",localStorage.getItem("joule-theme")||"auto")}
+function applyTheme(){document.documentElement.setAttribute("data-theme",localStorage.getItem("joule-theme")||"dark")}
 $("#themeBtn").onclick=()=>{const c=document.documentElement.getAttribute("data-theme")||"auto";const n=c==="auto"?"dark":(c==="dark"?"light":"auto");localStorage.setItem("joule-theme",n);applyTheme()};
 applyTheme();
 
@@ -128,7 +129,14 @@ function open(){
   ws.onmessage=ev=>{try{handle(JSON.parse(ev.data))}catch(e){}};
 }
 function handle(m){
-  if(m.type==="hist"){m.lines.forEach(addLine);render()}
+  if(m.type==="hist"){
+    // Apply live title + brand from the host sketch's setTitle()/
+    // setBrandColor() so the gzipped UI still reflects host customisation.
+    if(m.title){document.title=m.title;const t=$("#appTitle");if(t)t.textContent=m.title}
+    if(m.brand){document.documentElement.style.setProperty("--brand",m.brand);
+                document.querySelector('meta[name="theme-color"]')?.setAttribute("content",m.brand)}
+    m.lines.forEach(addLine);render();
+  }
   else if(m.type==="line"){addLine(m);render(true)}
   else if(m.type==="clients"){$("#clients").textContent=m.n}
 }
