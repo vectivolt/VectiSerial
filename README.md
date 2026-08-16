@@ -3,12 +3,12 @@
 > Wireless serial console for ESP32 over a single bi-directional
 > WebSocket. Four log levels with ANSI-coloured badges, history replay on
 > reconnect, regex search, hex view, exports, multi-client, command input
-> with arrow-key history. Apache-2.0 licensed, mobile-ready, **24 KB on the wire**.
+> with arrow-key history. Apache-2.0 licensed, mobile-ready, **24,862 B on the wire**.
 
-![VectiSerial console](docs/screenshots/serial-desktop.png)
+![VectiSerial console](docs/screenshots/serial-dark.png)
 
 **Author:** [Chinmoy Bhuyan](mailto:chinmoy@joulepoint.com) · **License:** Apache-2.0
-· **Targets:** ESP32 (S2 / S3 / C3 / classic)
+· **ESP32 only** · **Built and run on:** ESP32-S3
 
 ---
 
@@ -27,12 +27,22 @@
 | 👥 **Multi-client sync** | Every tab sees the same stream and shares the command bar |
 | 🔤 **Font controls** | 12–16 px live preview; persists in `localStorage` |
 | 📊 **Live counters** | Per-level totals + lines/sec rate + connected-client count |
-| 🪶 **Light on flash** | Pre-gzipped UI: 24 KB of flash, 66 KB after the browser inflates it |
+| 🪶 **Light on flash** | Pre-gzipped UI: **24,862 B** of flash, 67,383 B after the browser inflates it |
 | 📱 **Mobile-first** | Sticky command bar, 44 px touch targets |
 
 ---
 
 ## Quick start
+
+Three lines on top of an `AsyncWebServer` you already have:
+
+```cpp
+VectiSerial.begin(&server, "admin", "vecti");   // mounts /serial + /serial/ws
+server.begin();
+// …and VectiSerial.loop(); from loop() — not optional, see below
+```
+
+The whole sketch:
 
 ```cpp
 #include <WiFi.h>
@@ -280,9 +290,14 @@ is accepted too. Backslash escapes in `text` are decoded, so
 | Log pane | One row per line: timestamp · level badge · text | Hover to highlight |
 | Bottom bar | Command input + `Send ↵` | Up/Down arrows step through last 50 commands |
 
+Light theme (the ◐ toggle in the header; the choice persists in
+`localStorage["vecti-theme"]`):
+
+![VectiSerial console, light theme](docs/screenshots/serial-light.png)
+
 Mobile (390 px wide):
 
-![VectiSerial mobile](docs/screenshots/serial-mobile.png)
+![VectiSerial mobile](docs/screenshots/serial-phone.png)
 
 ---
 
@@ -419,9 +434,16 @@ deadlock.
 
 ## Dependencies
 
-* `ESP32Async/ESPAsyncWebServer @ ^3.7.0` — `AsyncURIMatcher::exact()` comes
-  from here, not from the Arduino core
+* `ESP32Async/ESPAsyncWebServer @ ^3.11.0` — `AsyncURIMatcher::exact()` comes
+  from **ESPAsyncWebServer**, not from the Arduino core, and `begin()` needs it
+  so `/serial` stops swallowing `/serial/ws` and every route another library
+  mounted. 3.11.0 is the only release verified here, so that is the declared
+  floor; an older 3.x may well carry the matcher, but the failure mode if it
+  does not is `error: 'AsyncURIMatcher' has not been declared` with nothing
+  pointing at the version. Lower it yourself only against a release you checked
 * `ESP32Async/AsyncTCP @ ^3.4.0`
+* arduino-esp32 core 2.x or 3.x — built against **2.0.17** (platform
+  `espressif32 @ 6.13.0`)
 
 * `Preferences` — from the Arduino-ESP32 core, not a `library.json` entry.
   One 4-byte NVS counter for the boot id.
@@ -440,9 +462,35 @@ that survives a power cycle works for the counter (ESP8266 has its own
 
 ---
 
+## Limitations
+
+| Limitation | Detail |
+|---|---|
+| **History lives in RAM** | The ring is a `std::deque` in heap. A reboot loses it; there is no flash-backed log. Each line costs roughly `text.length() + 40` bytes, so a 1024-line ring is real memory |
+| **Replay caps out** | Rings past roughly 2000 lines exceed the 32-message per-client send queue and will replay only partially |
+| **Bursts drop silently for a slow client** | Overflowing one client's send queue drops the excess **for that client**, with no marker in its console. `seq` is monotonic so a client can detect the gap; the bundled UI does not |
+| **Log latency is one `loop()` iteration** | Nothing reaches the UART or the socket until `loop()` runs. A sketch that blocks in `loop()` stops logging until it returns, and lines logged in `setup()` appear on the first `loop()` |
+| **Auth is plaintext** | HTTP Basic on `/serial` and `/serial/ws`, in the clear. LAN-grade — put the device behind TLS or a VPN if the network is not trusted |
+| **No wall clock** | Timestamps are device uptime. The library ships no clock and the UI never consults `Date`, so correlating with anything external means noting the uptime at a known instant |
+| **ESP32 only** | The header builds elsewhere, but AsyncTCP is ESP32/LibreTiny-only and the boot-id counter uses NVS `Preferences`. See the note above for what a port would need |
+| **Network paths unverified on hardware** | The ESP32-S3 build flashes, boots and registers `/serial`. The WebSocket has **not** been exercised against real hardware over a network — the board was verified over USB serial only |
+| **New project** | No CI, no test suite, no users yet, and not in the Arduino Library Manager |
+
+### License position — honest version
+
+VectiSerial's own code is Apache-2.0. It links **ESPAsyncWebServer** and
+**AsyncTCP**, both **LGPL-3.0**. There is no dynamic linking on an MCU, so
+LGPL §4's relink obligations attach to the binary you ship. Do not read
+"Apache-2.0" as "no copyleft obligations" — plan for the LGPL terms on the
+async stack. Every ESP32 async-web library in this space inherits the same
+dependency, so this is a property of the ecosystem, not of this library.
+
+---
+
 ## License
 
-Apache-2.0 — see [LICENSE](LICENSE).
+Apache-2.0 — see [LICENSE](LICENSE). See [Limitations](#limitations) for the
+LGPL-3.0 obligations inherited from ESPAsyncWebServer / AsyncTCP.
 
 ---
 
