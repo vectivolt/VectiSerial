@@ -1,15 +1,15 @@
 // ---------------------------------------------------------------------------
-// JouleSuite for ESP32 — JouleOTA · JouleSerial · JouleNet · JouleDash
+// VectiSuite for ESP32 — VectiOTA · VectiSerial · VectiNet · VectiDash
 // Author: Chinmoy Bhuyan
-// Email:  dikibhuyan@gmail.com
-// (c) 2026 — MIT License
+// Email:  chinmoy@joulepoint.com
+// (c) 2026 VectiVolt — Apache-2.0 License
 // ---------------------------------------------------------------------------
 
-// JouleSerial — wireless serial console over WebSocket.
+// VectiSerial — wireless serial console over WebSocket.
 //
 // Why this exists: WebSerial.pro is closed-source and uses polling HTTP, no
 // log levels, no search, and the input bar is a single global field.
-// JouleSerial does the same in 4 lines but adds:
+// VectiSerial does the same in 4 lines but adds:
 //
 //   * WebSocket transport — sub-100ms round trip even with 10 connected
 //     clients, vs. WebSerial's 1s poll cadence.
@@ -27,10 +27,10 @@
 //
 // Usage:
 //
-//   #include <JouleSerial.h>
-//   JouleSerial.begin(&server, "admin", "joule");
-//   JouleSerial.info("hello world");
-//   JouleSerial.onMessage([](const String &cmd){ Serial.println(cmd); });
+//   #include <VectiSerial.h>
+//   VectiSerial.begin(&server, "admin", "vecti");
+//   VectiSerial.info("hello world");
+//   VectiSerial.onMessage([](const String &cmd){ Serial.println(cmd); });
 #pragma once
 
 #include <Arduino.h>
@@ -39,15 +39,15 @@
 #include <deque>
 #include <stdarg.h>
 
-namespace joule {
+namespace vecti {
 
 enum class LogLevel : uint8_t { Debug=0, Info=1, Warn=2, Error=3 };
 
 using SerialMessageCb = std::function<void(const String &command)>;
 
-class JouleSerialClass : public Print {
+class VectiSerialClass : public Print {
 public:
-  JouleSerialClass();
+  VectiSerialClass();
 
   // Mount /serial (UI) + /serial/ws (WebSocket). If a username is given both
   // are gated — the WebSocket carries the whole log and accepts commands, so
@@ -98,7 +98,7 @@ public:
   void setTitle(const String &t){ asyncsrv::lock_guard_type g(_mtx); _title = t; }
   void setBrandColor(const String &css){ asyncsrv::lock_guard_type g(_mtx); _brandColor = css; }
 
-  // If true (default), JouleSerial also mirrors every line to Serial.
+  // If true (default), VectiSerial also mirrors every line to Serial.
   // Disable when you want the wireless console to be the only sink.
   void setMirrorToHardwareSerial(bool on) { _mirrorHw = on; }
 
@@ -124,7 +124,7 @@ private:
   AsyncWebSocket   *_ws     = nullptr;
 
   String _user, _pass;
-  String _title      = "JouleSerial";
+  String _title      = "VectiSerial";
   String _brandColor = "#2ee5a0";
   bool   _mirrorHw   = true;
 
@@ -173,6 +173,6 @@ private:
   SerialMessageCb _onMessage;
 };
 
-} // namespace joule
+} // namespace vecti
 
-extern joule::JouleSerialClass JouleSerial;
+extern vecti::VectiSerialClass VectiSerial;

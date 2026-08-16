@@ -1,13 +1,13 @@
-# JouleSerial
+# VectiSerial
 
 > Wireless serial console for ESP32 over a single bi-directional
 > WebSocket. Four log levels with ANSI-coloured badges, history replay on
 > reconnect, regex search, hex view, exports, multi-client, command input
-> with arrow-key history. MIT-licensed, mobile-ready, **24 KB on the wire**.
+> with arrow-key history. Apache-2.0 licensed, mobile-ready, **24 KB on the wire**.
 
-![JouleSerial console](docs/screenshots/serial-desktop.png)
+![VectiSerial console](docs/screenshots/serial-desktop.png)
 
-**Author:** [Chinmoy Bhuyan](mailto:dikibhuyan@gmail.com) · **License:** MIT
+**Author:** [Chinmoy Bhuyan](mailto:chinmoy@joulepoint.com) · **License:** Apache-2.0
 · **Targets:** ESP32 (S2 / S3 / C3 / classic)
 
 ---
@@ -37,7 +37,7 @@
 ```cpp
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include <JouleSerial.h>
+#include <VectiSerial.h>
 
 AsyncWebServer server(80);
 volatile bool rebootRequested = false;
@@ -46,24 +46,24 @@ void setup() {
   WiFi.begin("YOUR_SSID", "YOUR_PASS");
   while (WiFi.status() != WL_CONNECTED) delay(200);
 
-  JouleSerial.begin(&server, "admin", "joule");
-  JouleSerial.onMessage([](const String &cmd){
-    JouleSerial.inf("got command: %s", cmd.c_str());
+  VectiSerial.begin(&server, "admin", "vecti");
+  VectiSerial.onMessage([](const String &cmd){
+    VectiSerial.inf("got command: %s", cmd.c_str());
     if (cmd == "reboot") rebootRequested = true;   // see "Inbound commands"
   });
   server.begin();
 
-  JouleSerial.inf("hello from %s", WiFi.macAddress().c_str());
+  VectiSerial.inf("hello from %s", WiFi.macAddress().c_str());
 }
 
 void loop() {
-  JouleSerial.loop();
+  VectiSerial.loop();
   if (rebootRequested) ESP.restart();
 
   static uint32_t last = 0;
   if (millis() - last > 2000) {
     last = millis();
-    JouleSerial.dbg("heap=%u rssi=%d", ESP.getFreeHeap(), WiFi.RSSI());
+    VectiSerial.dbg("heap=%u rssi=%d", ESP.getFreeHeap(), WiFi.RSSI());
   }
 }
 ```
@@ -105,7 +105,7 @@ Calling `begin()` a second time only updates the credentials — the routes stay
 as they were registered the first time.
 
 `begin()` also reads and increments one 4-byte NVS counter (namespace
-`joule-serial`, key `boot`). That is the device's boot id, and it is the high
+`vecti-serial`, key `boot`). That is the device's boot id, and it is the high
 half of every line's `seq` — see [WebSocket protocol](#websocket-protocol) for
 why `seq` has to keep climbing across a restart. It is one flash write per
 boot, in `setup()`, on the loop task. If NVS is unavailable the boot id stays
@@ -113,16 +113,16 @@ boot, in `setup()`, on the loop task. If NVS is unavailable the boot id stays
 
 ### Print-style API (drop-in replacement for `Serial`)
 
-`JouleSerialClass` inherits from `Print`, so anything that takes a `Print&`
+`VectiSerialClass` inherits from `Print`, so anything that takes a `Print&`
 or uses `print()`/`println()` works out of the box. Lines are flushed on
 `'\n'` or `'\r'` (CRLF flushes once) and tagged as `INFO`. A line that reaches
 512 characters without a terminator is flushed anyway, so a stream that never
 sends one can't grow the accumulator without bound.
 
 ```cpp
-JouleSerial.println("ready");
-JouleSerial.print("temp=");
-JouleSerial.println(t, 2);
+VectiSerial.println("ready");
+VectiSerial.print("temp=");
+VectiSerial.println(t, 2);
 ```
 
 ### Levelled API
@@ -282,7 +282,7 @@ is accepted too. Backslash escapes in `text` are decoded, so
 
 Mobile (390 px wide):
 
-![JouleSerial mobile](docs/screenshots/serial-mobile.png)
+![VectiSerial mobile](docs/screenshots/serial-mobile.png)
 
 ---
 
@@ -293,12 +293,12 @@ Mobile (390 px wide):
 ```cpp
 volatile bool rebootRequested = false;
 
-JouleSerial.onMessage([](const String &cmd){
+VectiSerial.onMessage([](const String &cmd){
   // Async context: dispatch fast, defer anything blocking or fatal.
   if      (cmd == "reboot")      rebootRequested = true;
-  else if (cmd == "heap")        JouleSerial.inf("heap = %u", ESP.getFreeHeap());
+  else if (cmd == "heap")        VectiSerial.inf("heap = %u", ESP.getFreeHeap());
   else if (cmd.startsWith("set ")) handleSetCmd(cmd.substring(4));
-  else                           JouleSerial.wrn("unknown: %s", cmd.c_str());
+  else                           VectiSerial.wrn("unknown: %s", cmd.c_str());
 });
 ```
 
@@ -308,16 +308,16 @@ JouleSerial.onMessage([](const String &cmd){
 // before
 Serial.printf("got %d packets\n", n);
 // after
-JouleSerial.inf("got %d packets", n);   // also still goes to Serial
+VectiSerial.inf("got %d packets", n);   // also still goes to Serial
 ```
 
 ### Streaming a CSV log from your code
 
-Just call `JouleSerial.inf()` with comma-separated fields; the UI's CSV
+Just call `VectiSerial.inf()` with comma-separated fields; the UI's CSV
 export will re-quote them correctly:
 
 ```cpp
-JouleSerial.inf("%lu,%d,%.2f", millis(), pktCount, currentA);
+VectiSerial.inf("%lu,%d,%.2f", millis(), pktCount, currentA);
 ```
 
 User clicks **Export → CSV** to download.
@@ -326,16 +326,16 @@ User clicks **Export → CSV** to download.
 
 ```cpp
 AsyncWebServer server(80);
-JouleSerial.begin(&server);            // mounts /serial + /serial/ws
+VectiSerial.begin(&server);            // mounts /serial + /serial/ws
 server.on("/api/state", HTTP_GET, …);  // your own routes still work
 server.begin();
-// …and JouleSerial.loop(); from loop()
+// …and VectiSerial.loop(); from loop()
 ```
 
 ### Silent mode (no hardware UART output)
 
 ```cpp
-JouleSerial.setMirrorToHardwareSerial(false);
+VectiSerial.setMirrorToHardwareSerial(false);
 ```
 
 ---
@@ -411,8 +411,8 @@ deadlock.
 | Console is empty after a device reboot | The ring is in RAM — a restart clears it, so there is nothing to replay until the sketch logs again | Expected. The tab itself keeps working: `seq` carries a boot id, so new lines are not mistaken for ones already seen ([details](#seq-and-the-boot-id)) |
 | Console goes permanently silent after a reboot — pill green, no new lines | A client that dedupes on `seq` is holding a high-water mark from before the reboot, and the device is re-using the same numbers | Fixed in this version by the boot id in `seq`, provided NVS is writable. If the boot id is stuck at `0` (NVS full or read-only) reload the page to reset the client |
 | Long lines end in `…` | Format result exceeded 2048 bytes, or the heap buffer could not be allocated | Split the log into pieces |
-| Free heap falls on every reconnect | `JouleSerial.loop()` is not being called | Call it from your `loop()` |
-| Nothing appears in the console or on the UART, but the sketch is clearly logging | `JouleSerial.loop()` is not being called, or `loop()` is blocked in a long `delay()` / busy wait | Lines are emitted from `loop()` by design — call it, and don't block in it |
+| Free heap falls on every reconnect | `VectiSerial.loop()` is not being called | Call it from your `loop()` |
+| Nothing appears in the console or on the UART, but the sketch is clearly logging | `VectiSerial.loop()` is not being called, or `loop()` is blocked in a long `delay()` / busy wait | Lines are emitted from `loop()` by design — call it, and don't block in it |
 | Lines logged in `setup()` are missing from the UART | Same cause: they are emitted on the first `loop()` iteration | Expected; they still appear, just later |
 
 ---
@@ -442,8 +442,8 @@ that survives a power cycle works for the counter (ESP8266 has its own
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Apache-2.0 — see [LICENSE](LICENSE).
 
 ---
 
-<sub>**Author:** Chinmoy Bhuyan · **Email:** dikibhuyan@gmail.com · **(c)** 2026 — MIT</sub>
+<sub>**Author:** Chinmoy Bhuyan · **Email:** chinmoy@joulepoint.com · **(c)** 2026 — Apache-2.0</sub>

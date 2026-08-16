@@ -1,15 +1,15 @@
 // ---------------------------------------------------------------------------
-// JouleSuite for ESP32 — JouleOTA · JouleSerial · JouleNet · JouleDash
+// VectiSuite for ESP32 — VectiOTA · VectiSerial · VectiNet · VectiDash
 // Author: Chinmoy Bhuyan
-// Email:  dikibhuyan@gmail.com
-// (c) 2026 — MIT License
+// Email:  chinmoy@joulepoint.com
+// (c) 2026 VectiVolt — Apache-2.0 License
 // ---------------------------------------------------------------------------
 
-// JouleSerial implementation.
+// VectiSerial implementation.
 //
 // THREADING — the thing to get right here. Two tasks touch this object:
 //
-//   * the Arduino loop task, via log()/print()/dbg() and JouleSerial::loop();
+//   * the Arduino loop task, via log()/print()/dbg() and VectiSerial::loop();
 //   * the AsyncTCP task, via the AsyncWebSocket event handler — which also
 //     reaches _log(), because the documented contract lets onMessage()
 //     handlers log, and the fragmented-frame path logs an error itself.
@@ -18,7 +18,7 @@
 // It therefore does exactly one thing: append to the ring under _mtx. The
 // two slow parts — the hardware-Serial mirror and the WebSocket broadcast —
 // are done by _pump(), which runs on the loop task only, from
-// JouleSerial::loop(). That buys two properties:
+// VectiSerial::loop(). That buys two properties:
 //
 //   1. nothing blocking (Serial.printf on a stalled CDC/UART, textAll on a
 //      full client queue) ever executes on the AsyncTCP task, and
@@ -40,8 +40,8 @@
 // trimming, no level prefix) so the host sketch can implement whatever
 // command language it likes.
 
-#include "JouleSerial.h"
-#include "JouleSerial_ui_gz.h"
+#include "VectiSerial.h"
+#include "VectiSerial_ui_gz.h"
 #include <Preferences.h>
 #include <stdarg.h>
 
@@ -55,9 +55,9 @@ static void sendGzippedUi(AsyncWebServerRequest *req, const uint8_t *gz, size_t 
   req->send(res);
 }
 
-namespace joule {
+namespace vecti {
 
-JouleSerialClass::JouleSerialClass() {}
+VectiSerialClass::VectiSerialClass() {}
 
 // Reads the string value of `key` (quoted, e.g. "\"text\"") out of a flat JSON
 // object. Returns the index just past the value's closing quote, or -1 if the
@@ -153,14 +153,14 @@ static String escapeJson(const String &s) {
 // nothing else on the chip survives a power cycle.
 static uint32_t nextBootId() {
   Preferences p;
-  if (!p.begin("joule-serial", false)) return 0;
+  if (!p.begin("vecti-serial", false)) return 0;
   uint32_t id = p.getUInt("boot", 0) + 1;
   p.putUInt("boot", id);
   p.end();
   return id;
 }
 
-void JouleSerialClass::begin(AsyncWebServer *server, const String &username, const String &password) {
+void VectiSerialClass::begin(AsyncWebServer *server, const String &username, const String &password) {
   _user = username; _pass = password;
 
   // A second begin() is a credentials change, not a second mount: re-running
@@ -187,7 +187,7 @@ void JouleSerialClass::begin(AsyncWebServer *server, const String &username, con
   // anyway, but explicit-exact prevents future sub-path collisions).
   _server->on(AsyncURIMatcher::exact("/serial"), HTTP_GET, [this](AsyncWebServerRequest *req){
     if (_user.length() && !req->authenticate(_user.c_str(), _pass.c_str())) return req->requestAuthentication();
-    sendGzippedUi(req, joule::SERIAL_UI_HTML_GZ, joule::SERIAL_UI_HTML_GZ_LEN);
+    sendGzippedUi(req, vecti::SERIAL_UI_HTML_GZ, vecti::SERIAL_UI_HTML_GZ_LEN);
   });
 
   _attachWs();
@@ -199,12 +199,12 @@ void JouleSerialClass::begin(AsyncWebServer *server, const String &username, con
 // /serial/ws directly, gets the whole log replayed, and can send commands.
 // Same realm and default scheme as the /serial challenge, so the browser
 // reuses the credentials it already cached for the page.
-void JouleSerialClass::_applyWsAuth() {
+void VectiSerialClass::_applyWsAuth() {
   if (!_ws) return;
   _ws->setAuthentication(_user, _pass);
 }
 
-void JouleSerialClass::_attachWs() {
+void VectiSerialClass::_attachWs() {
   _ws = new AsyncWebSocket("/serial/ws");
   _applyWsAuth();
   _ws->onEvent([this](AsyncWebSocket *server, AsyncWebSocketClient *client,
@@ -267,7 +267,7 @@ void JouleSerialClass::_attachWs() {
 // Called from BOTH tasks (loop and AsyncTCP — see the threading note at the
 // top). Ring append only: no allocation-heavy encode, no Serial, no socket
 // write. Everything slow is _pump()'s job, on the loop task.
-void JouleSerialClass::_log(LogLevel lvl, const String &line) {
+void VectiSerialClass::_log(LogLevel lvl, const String &line) {
   asyncsrv::lock_guard_type g(_mtx);
   uint32_t now = millis();
   if (now < _lastMs) _msHigh += 0x100000000ULL;   // millis() rolled over
@@ -280,7 +280,7 @@ void JouleSerialClass::_log(LogLevel lvl, const String &line) {
 // connected client, in seq order. Both sinks block — Serial.printf stalls on a
 // full UART/CDC TX buffer, textAll walks the client list — which is exactly
 // why neither may run on the AsyncTCP task.
-void JouleSerialClass::_pump() {
+void VectiSerialClass::_pump() {
   for (;;) {
     // The line is COPIED out under the lock and released before either sink
     // runs. Holding _mtx across textAll() would deadlock: _newClient holds the
@@ -326,7 +326,7 @@ static const size_t kHistChunkLines = 64;
 // AsyncTCP TASK (WS_EVT_CONNECT). Replays the ring to one client as a series
 // of `hist` frames; the UI ingests each frame's lines independently, so more
 // than one is fine.
-void JouleSerialClass::_sendHistory(AsyncWebSocketClient *client, uint64_t sinceSeq) {
+void VectiSerialClass::_sendHistory(AsyncWebSocketClient *client, uint64_t sinceSeq) {
   uint64_t cursor = sinceSeq;
   size_t n = 0;
   do {
@@ -338,7 +338,7 @@ void JouleSerialClass::_sendHistory(AsyncWebSocketClient *client, uint64_t since
 
 // Builds one chunk: up to kHistChunkLines lines with seq > sinceSeq. `cursor`
 // is set to the seq of the last line included, `count` to how many.
-String JouleSerialClass::_historyJson(uint64_t sinceSeq, uint64_t &cursor, size_t &count) const {
+String VectiSerialClass::_historyJson(uint64_t sinceSeq, uint64_t &cursor, size_t &count) const {
   String j; j.reserve(kHistChunkLines * 80 + 128);
   count = 0;
   {
@@ -375,7 +375,7 @@ String JouleSerialClass::_historyJson(uint64_t sinceSeq, uint64_t &cursor, size_
 }
 
 // LOOP TASK. Reaps closed clients and emits everything _log() has queued.
-void JouleSerialClass::loop() {
+void VectiSerialClass::loop() {
   if (_ws) _ws->cleanupClients();
   _pump();
 }
@@ -388,7 +388,7 @@ void JouleSerialClass::loop() {
 // reach the console.
 static const size_t kMaxWriteLine = 512;
 
-size_t JouleSerialClass::write(uint8_t c) {
+size_t VectiSerialClass::write(uint8_t c) {
   // print() is documented as callable from either task, so the accumulator is
   // shared state: two tasks doing `_writeBuf += c` will eventually have one of
   // them realloc the buffer the other is writing through. _mtx is recursive,
@@ -408,7 +408,7 @@ size_t JouleSerialClass::write(uint8_t c) {
   return 1;
 }
 
-size_t JouleSerialClass::write(const uint8_t *buf, size_t size) {
+size_t VectiSerialClass::write(const uint8_t *buf, size_t size) {
   // One lock for the block rather than one per byte, and it keeps a multi-byte
   // print() from interleaving with the other task mid-line.
   asyncsrv::lock_guard_type g(_mtx);
@@ -422,7 +422,7 @@ size_t JouleSerialClass::write(const uint8_t *buf, size_t size) {
 // allocating megabytes to print it is a worse failure than clipping it.
 static const int kMaxFmtLine = 2048;
 
-void JouleSerialClass::_logv(LogLevel lvl, const char *fmt, va_list ap) {
+void VectiSerialClass::_logv(LogLevel lvl, const char *fmt, va_list ap) {
   // vsnprintf consumes ap, so the overflow path needs its own copy — the
   // classic bug here is "growing" the buffer and then concatenating the
   // already-truncated stack copy into it, which allocates the space and
@@ -450,7 +450,7 @@ void JouleSerialClass::_logv(LogLevel lvl, const char *fmt, va_list ap) {
 }
 
 #define JS_FMT_IMPL(NAME, LVL) \
-  void JouleSerialClass::NAME(const char *fmt, ...) { \
+  void VectiSerialClass::NAME(const char *fmt, ...) { \
     va_list ap; va_start(ap, fmt); _logv(LVL, fmt, ap); va_end(ap); \
   }
 JS_FMT_IMPL(dbg, LogLevel::Debug)
@@ -459,6 +459,6 @@ JS_FMT_IMPL(wrn, LogLevel::Warn)
 JS_FMT_IMPL(err, LogLevel::Error)
 #undef JS_FMT_IMPL
 
-} // namespace joule
+} // namespace vecti
 
-joule::JouleSerialClass JouleSerial;
+vecti::VectiSerialClass VectiSerial;

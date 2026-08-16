@@ -1,16 +1,16 @@
 {
-  "name": "JouleSerial",
+  "name": "VectiSerial",
   "version": "1.0.0",
   "description": "Wireless serial console for ESP32 \u2014 bi-directional WebSocket, ANSI colors, log levels, command history, hex view, search, export (JSON/CSV/TXT), multi-client.",
-  "keywords": "jouleserial, serial, monitor, websocket, esp32",
+  "keywords": "vectiserial, serial, monitor, websocket, esp32",
   "authors": [
     {
       "name": "Chinmoy Bhuyan",
-      "email": "dikibhuyan@gmail.com",
+      "email": "chinmoy@joulepoint.com",
       "maintainer": true
     }
   ],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "frameworks": "arduino",
   "platforms": [
     "espressif32"

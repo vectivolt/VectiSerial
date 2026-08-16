@@ -1,14 +1,14 @@
 // ---------------------------------------------------------------------------
-// JouleSuite for ESP32 — JouleOTA · JouleSerial · JouleNet · JouleDash
+// VectiSuite for ESP32 — VectiOTA · VectiSerial · VectiNet · VectiDash
 // Author: Chinmoy Bhuyan
-// Email:  dikibhuyan@gmail.com
-// (c) 2026 — MIT License
+// Email:  chinmoy@joulepoint.com
+// (c) 2026 VectiVolt — Apache-2.0 License
 // ---------------------------------------------------------------------------
 
-// Minimal JouleSerial example. Open http://<ip>/serial in a browser.
+// Minimal VectiSerial example. Open http://<ip>/serial in a browser.
 #include <WiFi.h>
 #include <ESPAsyncWebServer.h>
-#include <JouleSerial.h>
+#include <VectiSerial.h>
 
 AsyncWebServer server(80);
 unsigned long lastTick = 0;
@@ -22,20 +22,20 @@ void setup(){
   WiFi.mode(WIFI_STA);
   WiFi.begin("YOUR_SSID","YOUR_PASS");
   while (WiFi.status() != WL_CONNECTED) delay(200);
-  JouleSerial.begin(&server, "admin","joule");
-  JouleSerial.onMessage([](const String &cmd){
-    JouleSerial.inf("you typed: %s", cmd.c_str());
+  VectiSerial.begin(&server, "admin","vecti");
+  VectiSerial.onMessage([](const String &cmd){
+    VectiSerial.inf("you typed: %s", cmd.c_str());
     if (cmd == "reboot") rebootRequested = true;
   });
   server.begin();
-  JouleSerial.inf("hello from %s at %s", WiFi.macAddress().c_str(), WiFi.localIP().toString().c_str());
+  VectiSerial.inf("hello from %s at %s", WiFi.macAddress().c_str(), WiFi.localIP().toString().c_str());
 }
 
 void loop(){
-  JouleSerial.loop();
+  VectiSerial.loop();
   if (rebootRequested) ESP.restart();
   if (millis() - lastTick > 2000) {
     lastTick = millis();
-    JouleSerial.dbg("heap=%u rssi=%d", ESP.getFreeHeap(), WiFi.RSSI());
+    VectiSerial.dbg("heap=%u rssi=%d", ESP.getFreeHeap(), WiFi.RSSI());
   }
 }
