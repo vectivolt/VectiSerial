@@ -1,8 +1,8 @@
 {
   "name": "JouleSerial",
   "version": "1.0.0",
-  "description": "Wireless serial console for ESP32/ESP8266 \u2014 bi-directional WebSocket, ANSI colors, log levels, command history, hex view, search, export (JSON/CSV/TXT), multi-client.",
-  "keywords": "jouleserial, serial, monitor, websocket, esp32, esp8266",
+  "description": "Wireless serial console for ESP32 \u2014 bi-directional WebSocket, ANSI colors, log levels, command history, hex view, search, export (JSON/CSV/TXT), multi-client.",
+  "keywords": "jouleserial, serial, monitor, websocket, esp32",
   "authors": [
     {
       "name": "Chinmoy Bhuyan",
@@ -13,11 +13,10 @@
   "license": "MIT",
   "frameworks": "arduino",
   "platforms": [
-    "espressif32",
-    "espressif8266"
+    "espressif32"
   ],
   "dependencies": {
-    "ESP32Async/ESPAsyncWebServer": "^3.7.0",
+    "ESP32Async/ESPAsyncWebServer": "^3.11.0",
     "ESP32Async/AsyncTCP": "^3.4.0"
   },
   "build": {

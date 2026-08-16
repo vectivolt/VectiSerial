@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// JouleSuite for ESP32 / ESP8266 — JouleOTA · JouleSerial · JouleNet · JouleDash
+// JouleSuite for ESP32 — JouleOTA · JouleSerial · JouleNet · JouleDash
 // Author: Chinmoy Bhuyan
 // Email:  dikibhuyan@gmail.com
 // (c) 2026 — MIT License
@@ -16,6 +16,11 @@
 #include <functional>
 
 AsyncWebServer server(80);
+
+// onMessage() runs on the AsyncTCP task, so anything slow or fatal has to be
+// handed to loop(): delaying there stalls every other socket on the device,
+// and restarting there tears down the TCP stack from inside its own callback.
+volatile bool rebootRequested = false;
 
 // ---- micro REPL ------------------------------------------------------------
 using CmdFn = std::function<void(const String &args)>;
@@ -53,7 +58,7 @@ void setup() {
   cmd("ip",   [](const String &) { JouleSerial.inf("ip = %s", WiFi.localIP().toString().c_str()); });
   cmd("uptime", [](const String &) { JouleSerial.inf("uptime = %lu s", millis()/1000); });
   cmd("echo", [](const String &args) { JouleSerial.inf("%s", args.c_str()); });
-  cmd("reboot", [](const String &) { JouleSerial.wrn("reboot in 1s…"); delay(1000); ESP.restart(); });
+  cmd("reboot", [](const String &) { JouleSerial.wrn("reboot in 1s…"); rebootRequested = true; });
   cmd("set", [](const String &args) {
     // Example: "set led 1" toggles GPIO 2
     int sp = args.indexOf(' '); if (sp < 0) { JouleSerial.err("usage: set <pin> <0|1>"); return; }
@@ -67,4 +72,12 @@ void setup() {
   JouleSerial.inf("ready — type 'help' for a list of commands");
 }
 
-void loop() { delay(10); }
+void loop() {
+  JouleSerial.loop();
+  if (rebootRequested) {
+    // The 1 s gives the "reboot in 1s…" line time to reach the browser.
+    static uint32_t at = millis();
+    if (millis() - at > 1000) ESP.restart();
+  }
+  delay(10);
+}
